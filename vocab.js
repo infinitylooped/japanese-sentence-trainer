@@ -2,6 +2,14 @@
 // lesson: where the word is introduced. Words without one (names, わたし) are always available.
 // en: the English as it appears in a sentence.
 
+// Hours of the day (0–23) when something happens; used so clock times make sense ("breakfast at 7 a.m.").
+// hours on a word limits when it can happen; words without hours fit any waking hour. Noon and midnight aren't used.
+const hoursFrom = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i).filter((h) => h !== 12);
+const AWAKE = hoursFrom(7, 22);
+const DAYTIME = hoursFrom(8, 17);
+const NIGHT = hoursFrom(18, 23);
+const MEALS = [11, 13, 18, 19, 20];
+
 // People who can be the topic ("X は …") or an owner ("X の …"). pos: English possessive (default "X's").
 const PEOPLE = [
   { jp: "わたし", en: "I", pos: "my", me: true },
@@ -124,47 +132,49 @@ const PRICES = [
 //   own: English after an owner ("Mary's house"); places without one can't have an owner.
 //   go: can be a destination. back: can be where you go back to (かえります).
 //   does: the kinds of object (see OBJECTS) you can do things with there.
+//   hours: when you're there (toHours: when you go there, if different). [] = no clock time or night (countries).
 const PLACES = [
-  { jp: "うち", en: "home", at: "at home", to: "home", own: "house", go: true, back: true,
+  { jp: "うち", en: "home", at: "at home", to: "home", own: "house", go: true, back: true, toHours: hoursFrom(16, 23),
     does: ["drink", "food", "reading", "music", "show", "subject", "language"], lesson: 3 },
-  { jp: "がっこう", en: "school", name: "the school", go: true, does: ["food", "subject", "language", "sport", "reading"], lesson: 3 },
-  { jp: "だいがく", en: "the university", name: "the university", go: true, does: ["food", "subject", "language", "sport", "reading"], lesson: 1 },
-  { jp: "こうこう", en: "high school", go: true, does: ["subject", "sport"], lesson: 1 },
-  { jp: "としょかん", en: "the library", name: "the library", go: true, does: ["reading", "subject"], lesson: 2 },
-  { jp: "きっさてん", en: "the café", name: "the café", go: true, does: ["drink", "food", "reading", "music"], lesson: 2 },
-  { jp: "ぎんこう", en: "the bank", name: "the bank", go: true, does: [], lesson: 2 },
-  { jp: "ゆうびんきょく", en: "the post office", name: "the post office", go: true, does: [], lesson: 2 },
+  { jp: "がっこう", en: "school", name: "the school", go: true, hours: DAYTIME, does: ["food", "subject", "language", "sport", "reading"], lesson: 3 },
+  { jp: "だいがく", en: "the university", name: "the university", go: true, hours: DAYTIME, does: ["food", "subject", "language", "sport", "reading"], lesson: 1 },
+  { jp: "こうこう", en: "high school", go: true, hours: DAYTIME, does: ["subject", "sport"], lesson: 1 },
+  { jp: "としょかん", en: "the library", name: "the library", go: true, hours: hoursFrom(9, 20), does: ["reading", "subject"], lesson: 2 },
+  { jp: "きっさてん", en: "the café", name: "the café", go: true, hours: hoursFrom(8, 21), does: ["drink", "food", "reading", "music"], lesson: 2 },
+  { jp: "ぎんこう", en: "the bank", name: "the bank", go: true, hours: hoursFrom(9, 15), does: [], lesson: 2 },
+  { jp: "ゆうびんきょく", en: "the post office", name: "the post office", go: true, hours: hoursFrom(9, 15), does: [], lesson: 2 },
   { jp: "トイレ", en: "the restroom", name: "the restroom", does: [], lesson: 2 },
-  { jp: "にほん", en: "Japan", at: "in Japan", go: true, back: true, does: ["subject", "language", "food"], lesson: 1 },
-  { jp: "アメリカ", en: "America", at: "in America", go: true, back: true, does: ["subject", "language", "food"], lesson: 1 },
-  { jp: "イギリス", en: "Britain", at: "in Britain", go: true, back: true, does: ["subject", "language"], lesson: 1 },
-  { jp: "ちゅうごく", en: "China", at: "in China", go: true, back: true, does: ["subject", "language", "food"], lesson: 1 },
-  { jp: "かんこく", en: "Korea", at: "in Korea", go: true, back: true, does: ["subject", "language", "food"], lesson: 1 },
+  { jp: "にほん", en: "Japan", at: "in Japan", go: true, back: true, hours: [], does: ["subject", "language", "food"], lesson: 1 },
+  { jp: "アメリカ", en: "America", at: "in America", go: true, back: true, hours: [], does: ["subject", "language", "food"], lesson: 1 },
+  { jp: "イギリス", en: "Britain", at: "in Britain", go: true, back: true, hours: [], does: ["subject", "language"], lesson: 1 },
+  { jp: "ちゅうごく", en: "China", at: "in China", go: true, back: true, hours: [], does: ["subject", "language", "food"], lesson: 1 },
+  { jp: "かんこく", en: "Korea", at: "in Korea", go: true, back: true, hours: [], does: ["subject", "language", "food"], lesson: 1 },
 ];
 
 // Objects of verbs ("___ を のみます"), grouped by kind. own: English after an owner ("Mary's book").
+// hours: when you'd do it (see AWAKE).
 const OBJECTS = [
-  { jp: "コーヒー", en: "coffee", kind: "drink", lesson: 3 },
-  { jp: "おちゃ", en: "green tea", kind: "drink", lesson: 3 },
+  { jp: "コーヒー", en: "coffee", kind: "drink", hours: hoursFrom(7, 17), lesson: 3 },
+  { jp: "おちゃ", en: "green tea", kind: "drink", hours: hoursFrom(7, 20), lesson: 3 },
   { jp: "みず", en: "water", kind: "drink", lesson: 3 },
-  { jp: "おさけ", en: "sake", kind: "drink", lesson: 3 },
-  { jp: "あさごはん", en: "breakfast", kind: "food", lesson: 3 },
-  { jp: "ひるごはん", en: "lunch", kind: "food", lesson: 3 },
-  { jp: "ばんごはん", en: "dinner", kind: "food", lesson: 3 },
-  { jp: "ハンバーガー", en: "hamburgers", kind: "food", lesson: 3 },
-  { jp: "アイスクリーム", en: "ice cream", kind: "food", lesson: 3 },
-  { jp: "さかな", en: "fish", kind: "food", lesson: 2 },
-  { jp: "にく", en: "meat", kind: "food", lesson: 2 },
-  { jp: "やさい", en: "vegetables", kind: "food", lesson: 2 },
-  { jp: "とんかつ", en: "tonkatsu", kind: "food", lesson: 2 },
+  { jp: "おさけ", en: "sake", kind: "drink", hours: NIGHT, lesson: 3 },
+  { jp: "あさごはん", en: "breakfast", kind: "food", hours: hoursFrom(6, 9), lesson: 3 },
+  { jp: "ひるごはん", en: "lunch", kind: "food", hours: [11, 13], lesson: 3 },
+  { jp: "ばんごはん", en: "dinner", kind: "food", hours: hoursFrom(18, 21), lesson: 3 },
+  { jp: "ハンバーガー", en: "hamburgers", kind: "food", hours: MEALS, lesson: 3 },
+  { jp: "アイスクリーム", en: "ice cream", kind: "food", hours: hoursFrom(13, 21), lesson: 3 },
+  { jp: "さかな", en: "fish", kind: "food", hours: MEALS, lesson: 2 },
+  { jp: "にく", en: "meat", kind: "food", hours: MEALS, lesson: 2 },
+  { jp: "やさい", en: "vegetables", kind: "food", hours: MEALS, lesson: 2 },
+  { jp: "とんかつ", en: "tonkatsu", kind: "food", hours: MEALS, lesson: 2 },
   { jp: "ほん", en: "books", own: "book", kind: "reading", lesson: 2 },
   { jp: "しんぶん", en: "the newspaper", own: "newspaper", kind: "reading", lesson: 2 },
   { jp: "ざっし", en: "magazines", own: "magazine", kind: "reading", lesson: 3 },
   { jp: "おんがく", en: "music", kind: "music", lesson: 3 },
-  { jp: "えいが", en: "movies", kind: "show", lesson: 3 },
-  { jp: "テレビ", en: "TV", kind: "show", lesson: 3 },
-  { jp: "テニス", en: "tennis", kind: "sport", lesson: 3 },
-  { jp: "スポーツ", en: "sports", kind: "sport", lesson: 3 },
+  { jp: "えいが", en: "movies", kind: "show", hours: hoursFrom(13, 22), lesson: 3 },
+  { jp: "テレビ", en: "TV", kind: "show", hours: [7, 8, ...NIGHT], lesson: 3 },
+  { jp: "テニス", en: "tennis", kind: "sport", hours: DAYTIME, lesson: 3 },
+  { jp: "スポーツ", en: "sports", kind: "sport", hours: DAYTIME, lesson: 3 },
   ...MAJORS.map((m) => ({ ...m, kind: "subject" })),
   { jp: "にほんご", en: "Japanese", kind: "language", lesson: 1 },
   { jp: "えいご", en: "English", kind: "language", lesson: 1 },
@@ -176,7 +186,8 @@ const OBJECTS = [
 //   object: the kind of object it takes (it always gets one). what: English verb when asking "なにを".
 //   to: takes a destination ("go": any place you can go to, "back": only places with back).
 //   noWhere: don't ask "どこに" with it ("Where do you come?" isn't English).
-//   time: always gets a clock time (otherwise "I get up." would be the whole sentence), at one of hours.
+//   time: always gets a clock time (otherwise "I get up." would be the whole sentence).
+//   hours: when it happens (default AWAKE).
 //   noClock / noWhat: no clock time ("I speak Chinese at 5"), no "なにを" ("What do you speak?").
 const VERBS = [
   { jp: "いきます", en: ["go", "goes"], to: "go", lesson: 3 },
@@ -190,22 +201,31 @@ const VERBS = [
   { jp: "します", en: ["play", "plays"], object: "sport", what: "do", lesson: 3 },
   { jp: "べんきょうします", en: ["study", "studies"], object: "subject", lesson: 3 },
   { jp: "はなします", en: ["speak", "speaks"], object: "language", noClock: true, noWhat: true, lesson: 3 },
-  { jp: "おきます", en: ["get up", "gets up"], time: true, hours: [5, 6, 7, 8, 9, 10], lesson: 3 },
-  { jp: "ねます", en: ["go to bed", "goes to bed"], time: true, hours: [9, 10, 11, 12, 1], lesson: 3 },
+  { jp: "おきます", en: ["get up", "gets up"], time: true, hours: hoursFrom(5, 10), lesson: 3 },
+  { jp: "ねます", en: ["go to bed", "goes to bed"], time: true, hours: [21, 22, 23, 1], lesson: 3 },
 ];
 
-// Times. clock: the hour of a clock time. free: takes no particle (Genki 3: no に after あした, まいにち, …). future: English uses "will".
-const HOURS = ["いち", "に", "さん", "よ", "ご", "ろく", "しち", "はち", "く", "じゅう", "じゅういち", "じゅうに"];
+// Times. clock: a clock time. hours: when it is (see AWAKE).
+// free: takes no particle (Genki 3: no に after あした, まいにち, …). future: English uses "will".
+const HOURS = ["いち", "に", "さん", "よ", "ご", "ろく", "しち", "はち", "く", "じゅう", "じゅういち"];
+// ごぜん しちじ = 7 a.m., ごご しちじはん = 7:30 p.m.
+const CLOCK_TIMES = hoursFrom(1, 23).flatMap((h) => {
+  const n = h % 12;
+  const [jp, en] = h < 12 ? ["ごぜん", "a.m."] : ["ごご", "p.m."];
+  return [
+    { jp: `${jp} ${HOURS[n - 1]}じ`, en: `at ${n} ${en}`, clock: true, hours: [h], lesson: 1 },
+    { jp: `${jp} ${HOURS[n - 1]}じはん`, en: `at ${n}:30 ${en}`, clock: true, hours: [h], lesson: 1 },
+  ];
+});
 const TIMES = [
-  ...HOURS.map((h, i) => ({ jp: `${h}じ`, en: `at ${i + 1}`, clock: i + 1, lesson: 1 })),
-  ...HOURS.map((h, i) => ({ jp: `${h}じはん`, en: `at ${i + 1}:30`, clock: i + 1, lesson: 1 })),
+  ...CLOCK_TIMES,
   { jp: "にちようび", en: "on Sunday", lesson: 3 },
   { jp: "どようび", en: "on Saturday", lesson: 3 },
   { jp: "まいにち", en: "every day", free: true, lesson: 3 },
-  { jp: "まいばん", en: "every night", free: true, lesson: 3 },
+  { jp: "まいばん", en: "every night", free: true, hours: NIGHT, lesson: 3 },
   { jp: "きょう", en: "today", free: true, future: true, lesson: 3 },
   { jp: "あした", en: "tomorrow", free: true, future: true, lesson: 3 },
-  { jp: "こんばん", en: "tonight", free: true, future: true, lesson: 3 },
+  { jp: "こんばん", en: "tonight", free: true, future: true, hours: NIGHT, lesson: 3 },
 ];
 
 // English accepted in Type mode for katakana words when the katakana setting allows it (メアリーさん -> "Mary san").

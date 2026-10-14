@@ -143,7 +143,6 @@ function price(c, type) {
 // メアリーさんは あした としょかんで ほんを よみます。 / どこで ひるごはんを たべますか。
 function action(c, type) {
   const q = type === "question";
-  const timesFor = (v) => c.from(TIMES, (t) => (t.free || c.can("に")) && (v.time ? v.hours.includes(t.clock) : !(v.noClock && t.clock)));
   const goes = c.can("に") || c.can("へ");
   const objectsFor = (v) => c.from(OBJECTS, (o) => o.kind === v.object);
   const verbs = c.from(
@@ -151,7 +150,7 @@ function action(c, type) {
     (v) =>
       (!v.object || (c.can("を") && objectsFor(v).length)) &&
       (!v.to || (goes && c.from(PLACES, (p) => p[v.to]).length)) &&
-      (!v.time || timesFor(v).length)
+      (!v.time || (c.can("に") && c.lesson(1)))
   );
   if (!verbs.length) return null;
   const verb = pick(verbs);
@@ -162,7 +161,13 @@ function action(c, type) {
   const dest = verb.to && { word: pick(c.from(PLACES, (p) => p[verb.to])), particle: "に|へ" };
   const placesFor = verb.object && !verb.to && c.can("で") ? c.from(PLACES, (p) => p.does.includes(verb.object)) : [];
   const place = placesFor.length && chance(0.4) && { word: pick(placesFor), particle: "で" };
-  const times = timesFor(verb);
+
+  // The hours this can happen at, narrowed by the verb, object and places (breakfast: 6–9 a.m., the bank: 9 a.m.–3 p.m.).
+  const limits = [verb.hours ?? AWAKE, object && object.word.hours, dest && (dest.word.toHours ?? dest.word.hours), place && place.word.hours];
+  const hours = limits.filter(Boolean).reduce((hrs, limit) => hrs.filter((h) => limit.includes(h)));
+  const fits = (t) => !t.hours || t.hours.some((h) => hours.includes(h));
+  const times = c.from(TIMES, (t) => (t.free || c.can("に")) && (verb.time ? t.clock : !(verb.noClock && t.clock)) && fits(t));
+  if (verb.time && !times.length) return null;
   const time = times.length && (verb.time || chance(0.4)) && { word: pick(times) };
 
   // Sometimes "someone's ___": Mary's book, Takeshi's house.
@@ -188,7 +193,7 @@ function action(c, type) {
     if (dest && !verb.noWhere && c.lesson(2)) asks.push(["dest", "どこ{に|へ}", "Where"]);
     if (verb.object && !verb.to && c.can("で") && c.lesson(2)) asks.push(["place", "どこ{で}", "Where"]);
     if (!verb.time) asks.push(["time", "いつ", "When"]);
-    if (c.can("に") && c.lesson(1) && !verb.noClock) asks.push(["time", "なんじ{に}", "What time"]);
+    if (c.can("に") && c.lesson(1) && !verb.noClock && hours.length) asks.push(["time", "なんじ{に}", "What time"]);
     wh = pick(asks);
   }
   const roles = { object, dest, place, time };
@@ -239,6 +244,7 @@ function generate(settings) {
     const blanks = [...sentence.jp.matchAll(/\{([^}]+)\}/g)].map((m) => m[1].split("|"));
     if (blanks.length < min || blanks.length > max) continue;
     if (!blanks.every((b) => b.some((p) => p === "か" || c.can(p)))) continue;
+    sentence.en = sentence.en.replace(/\.\.$/, "."); // "at 8 a.m.." -> "at 8 a.m."
     return sentence;
   }
   return null;

@@ -20,6 +20,8 @@ Open `index.html` in a browser. There's no build step or server.
   Words are paired through tags: each verb names the kind of object it takes (`のみます` → `drink`), and each
   place lists what you can do there (`きっさてん` → `drink`, `food`, `reading`, `music`). So `きっさてんで コーヒーを のみます`
   can come up, but `ぎんこうで コーヒーを のみます` can't.
+- Clock times use ごぜん / ごご (`ごご じゅうじ` = 10 p.m.). Verbs, objects and places list the hours they happen at (breakfast
+  6–9 a.m., the bank 9 a.m.–3 p.m.), so a time only appears when it fits all of them. まいばん and こんばん count as night.
 - `generate.js` has one template per sentence pattern (`X は Y です`, `これは X の Y です`, verb sentences, …). A template
   fills its slots from the vocabulary and writes the English alongside.
 
