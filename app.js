@@ -20,7 +20,7 @@ const HELP = {
     `Tap the tiles in order. ${ORDER_NOTE}<br>` +
     "Keys: <kbd>1</kbd>–<kbd>9</kbd> pick a tile · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
   type:
-    "Type in kana or romaji (or a mix). Spaces, punctuation and long vowels don't matter. " +
+    "Type in kana or romaji (or a mix). Spaces, punctuation and long vowels don't matter, and わたしは can be left out. " +
     `${ORDER_NOTE}<br>Keys: <kbd>Enter</kbd> check / next`,
 };
 
@@ -226,11 +226,17 @@ function isCorrectTranslation(tokens, texts) {
 
 // ---------- type mode ----------
 
+// わたしは is usually left out in real Japanese, so it's optional when typing.
+const isWatashiWa = (phrase) => phrase.length === 2 && phrase[0].text === "わたし" && phrase[1].answers?.includes("は");
+
 // Every accepted answer as a comparison key: all phrase orders × all ways to write each particle.
 function acceptedAnswers(tokens) {
   const { phrases, predicate } = splitPhrases(tokens);
+  const phraseSets = [phrases];
+  const withoutWatashi = phrases.filter((p) => !isWatashiWa(p));
+  if (withoutWatashi.length < phrases.length) phraseSets.push(withoutWatashi);
   const keys = new Set();
-  for (const order of permutations(phrases)) {
+  for (const order of phraseSets.flatMap(permutations)) {
     let variants = [""];
     for (const t of [...order.flat(), ...predicate]) {
       const options = t.answers ? t.answers.flatMap(particleRomaji) : [toRomaji(t.text)];
