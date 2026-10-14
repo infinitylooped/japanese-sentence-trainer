@@ -18,6 +18,7 @@
       <div class="stats">
         <span id="streak"></span>
         <span id="score">0 / 0</span>
+        <button id="settings-button" class="icon" aria-label="Settings" title="Settings">⚙</button>
       </div>
     </header>
 
@@ -32,7 +33,56 @@
     <p id="help" class="help"></p>
   </main>
 
-  <script src="sentences.js"></script>
+  <dialog id="settings">
+    <form>
+      <h2>Sentence settings</h2>
+      <p class="note">Saving gives you a new sentence, unless you have already answered the current one.</p>
+
+      <fieldset>
+        <legend>Genki lessons</legend>
+        <label><input type="checkbox" name="lessons" value="1"> 1</label>
+        <label><input type="checkbox" name="lessons" value="2"> 2</label>
+        <label><input type="checkbox" name="lessons" value="3"> 3</label>
+      </fieldset>
+
+      <fieldset lang="ja">
+        <legend lang="en">Particles</legend>
+        <label><input type="checkbox" name="particles" value="は"> は</label>
+        <label><input type="checkbox" name="particles" value="の"> の</label>
+        <label><input type="checkbox" name="particles" value="も"> も</label>
+        <label><input type="checkbox" name="particles" value="を"> を</label>
+        <label><input type="checkbox" name="particles" value="で"> で</label>
+        <label><input type="checkbox" name="particles" value="に"> に</label>
+        <label><input type="checkbox" name="particles" value="へ"> へ</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sentence types</legend>
+        <label><input type="checkbox" name="types" value="positive"> Positive</label>
+        <label><input type="checkbox" name="types" value="negative"> Negative <span lang="ja">(ません)</span></label>
+        <label><input type="checkbox" name="types" value="question"> Question <span lang="ja">(か)</span></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Particles per sentence</legend>
+        <label><input type="radio" name="length" value="any"> Any</label>
+        <label><input type="radio" name="length" value="short"> 1–2</label>
+        <label><input type="radio" name="length" value="medium"> 2–3</label>
+        <label><input type="radio" name="length" value="long"> 3 or more</label>
+      </fieldset>
+
+      <p id="settings-error" class="error" aria-live="polite"></p>
+      <div class="dialog-buttons">
+        <button type="button" id="settings-defaults">Defaults</button>
+        <span></span>
+        <button type="button" id="settings-cancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="vocab.js"></script>
+  <script src="generate.js"></script>
   <script src="romaji.js"></script>
   <script src="app.js"></script>
 </body>

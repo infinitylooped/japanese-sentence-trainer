@@ -1,21 +1,20 @@
-const PARTICLES = ["は", "が", "を", "に", "へ", "で", "の", "と", "も"];
+const PARTICLES = ["は", "の", "も", "を", "で", "に", "へ", "か"];
 
 const HINTS = {
   "は": "topic marker: \"as for X…\"",
-  "が": "subject marker; used with あります / います for what exists",
-  "を": "marks the direct object of the verb",
-  "に": "point in time, destination, where something exists, or the person you meet",
-  "へ": "direction / destination of movement",
-  "で": "place where an action happens",
   "の": "links nouns: X の Y = X's Y / Y of X",
-  "と": "\"and\" between nouns, or \"together with\" a person",
-  "も": "\"also / too\" (replaces は, が, を)",
+  "も": "\"also / too\" (replaces は)",
+  "を": "marks the direct object of the verb",
+  "で": "place where an action happens",
+  "に": "point in time (not after あした, まいにち, …), or destination",
+  "へ": "direction / destination of movement",
+  "か": "turns the sentence into a question",
 };
 
 const ORDER_NOTE = "Word order is flexible as long as each particle stays after its word and the verb comes last.";
 
 const HELP = {
-  particles: "Keys: <kbd>1</kbd>–<kbd>9</kbd> pick a particle · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
+  particles: "Keys: <kbd>1</kbd>–<kbd>8</kbd> pick a particle · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
   translate:
     `Tap the tiles in order. ${ORDER_NOTE}<br>` +
     "Keys: <kbd>1</kbd>–<kbd>9</kbd> pick a tile · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
@@ -34,9 +33,14 @@ const els = {
   score: document.getElementById("score"),
   streak: document.getElementById("streak"),
   help: document.getElementById("help"),
+  settingsButton: document.getElementById("settings-button"),
+  settings: document.getElementById("settings"),
+  settingsForm: document.querySelector("#settings form"),
+  settingsError: document.getElementById("settings-error"),
 };
 
 let mode = loadMode();
+let settings = loadSettings();
 const queues = {};
 const stats = {};
 for (const m in HELP) {
@@ -58,6 +62,14 @@ function saveMode() {
   try {
     localStorage.setItem("mode", mode);
   } catch {}
+}
+
+function loadSettings() {
+  try {
+    const s = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("settings")) };
+    if (generate(s)) return s;
+  } catch {}
+  return DEFAULT_SETTINGS;
 }
 
 // "わたし{は}がくせい" -> [{ text }, { answers: [...], value }, ...]
@@ -136,9 +148,20 @@ function typeCard(item) {
   return { item, segments, tokens, accepted: acceptedAnswers(tokens), input };
 }
 
+// A new sentence that isn't already coming up or on screen.
+function freshSentence(q) {
+  let s;
+  for (let i = 0; i < 20; i++) {
+    s = generate(settings);
+    if (s && s.jp !== card?.item.jp && !q.some((x) => x.jp === s.jp)) break;
+  }
+  return s ?? generate(DEFAULT_SETTINGS);
+}
+
 function nextCard() {
   const q = queues[mode];
-  if (q.length === 0) q.push(...shuffle(SENTENCES.slice()));
+  // Keep a few sentences lined up so a missed one can be brought back a few cards later.
+  while (q.length < 4) q.push(freshSentence(q));
   const item = q.shift();
   card = { particles: particleCard, translate: translateCard, type: typeCard }[mode](item);
   checked = false;
@@ -186,13 +209,14 @@ function removeTile(pos) {
   render();
 }
 
-// Split tokens into "words + particle" phrases (の keeps going to the next noun); the rest is the predicate.
+// Split tokens into "words + particle" phrases (の keeps going to the next noun, か belongs to the verb);
+// a word that takes no particle, like あした, is a phrase by itself. The rest is the predicate.
 function splitPhrases(tokens) {
   const phrases = [];
   let cur = [];
   for (const t of tokens) {
     cur.push(t);
-    if (t.answers && !t.answers.includes("の")) {
+    if (t.answers ? !t.answers.some((a) => a === "の" || a === "か") : FREE_WORDS.has(t.text)) {
       phrases.push(cur);
       cur = [];
     }
@@ -345,6 +369,43 @@ function setMode(m) {
   nextCard();
 }
 
+// ---------- settings ----------
+
+function fillSettingsForm(s) {
+  for (const input of els.settingsForm.elements) {
+    if (input.type === "checkbox") input.checked = s[input.name].map(String).includes(input.value);
+    if (input.type === "radio") input.checked = s[input.name] === input.value;
+  }
+}
+
+function openSettings() {
+  fillSettingsForm(settings);
+  els.settingsError.textContent = "";
+  els.settings.showModal();
+}
+
+function saveSettings(e) {
+  e.preventDefault();
+  const form = new FormData(els.settingsForm);
+  const s = {
+    lessons: form.getAll("lessons").map(Number),
+    particles: form.getAll("particles"),
+    types: form.getAll("types"),
+    length: form.get("length"),
+  };
+  if (!generate(s)) {
+    els.settingsError.textContent = "No sentences fit these settings. Try turning more on.";
+    return;
+  }
+  settings = s;
+  try {
+    localStorage.setItem("settings", JSON.stringify(s));
+  } catch {}
+  for (const m in queues) queues[m] = [];
+  els.settings.close();
+  if (!checked) nextCard();
+}
+
 // ---------- rendering ----------
 
 function button(className, html, onclick) {
@@ -433,9 +494,13 @@ function render() {
 function init() {
   els.tabs.forEach((t) => (t.onclick = () => setMode(t.dataset.mode)));
   els.action.onclick = onAction;
+  els.settingsButton.onclick = openSettings;
+  els.settingsForm.onsubmit = saveSettings;
+  document.getElementById("settings-cancel").onclick = () => els.settings.close();
+  document.getElementById("settings-defaults").onclick = () => fillSettingsForm(DEFAULT_SETTINGS);
 
   document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || els.settings.open) return;
     if (e.target instanceof HTMLInputElement) return; // the answer box handles its own keys
     const n = Number(e.key);
     if (n >= 1 && n <= 9 && mode !== "type") {
