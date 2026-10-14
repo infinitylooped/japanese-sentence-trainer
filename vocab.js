@@ -208,5 +208,26 @@ const TIMES = [
   { jp: "こんばん", en: "tonight", free: true, future: true, lesson: 3 },
 ];
 
+// English accepted in Type mode for katakana words when the katakana setting allows it (メアリーさん -> "Mary san").
+const LOANWORDS = {
+  "メアリー": ["Mary"],
+  "ロバート": ["Robert"],
+  "スー": ["Sue"],
+  "エマ": ["Emma"],
+  "アメリカ": ["America"],
+  "イギリス": ["Britain", "England"],
+  "オーストラリア": ["Australia"],
+  "コーヒー": ["coffee"],
+  "ハンバーガー": ["hamburger", "hamburgers"],
+  "アイスクリーム": ["ice cream"],
+  "テレビ": ["TV", "television"],
+  "テニス": ["tennis"],
+  "スポーツ": ["sports", "sport"],
+  "ビジネス": ["business"],
+  "トイレ": ["toilet", "restroom"],
+  "ノート": ["notebook", "note"],
+  "ペン": ["pen"],
+};
+
 // Words that stand alone without a particle, so they can move around in the sentence like a phrase.
 const FREE_WORDS = new Set([...TIMES.filter((t) => t.free).map((t) => t.jp), "いつ"]);

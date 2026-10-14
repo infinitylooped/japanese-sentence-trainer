@@ -259,7 +259,19 @@ function isCorrectTranslation(tokens, texts) {
 // わたしは is usually left out in real Japanese, so it's optional when typing.
 const isWatashiWa = (phrase) => phrase.length === 2 && phrase[0].text === "わたし" && phrase[1].answers?.includes("は");
 
-// Every accepted answer as a comparison key: all phrase orders × all ways to write each particle.
+// Ways to write a word in romaji: as read, and (if the setting allows) with English for its katakana loanwords,
+// e.g. メアリーさん -> "mearii san" or "Mary san".
+function wordSpellings(text) {
+  let spellings = [text];
+  if (settings.katakana === "english") {
+    for (const kata of text.match(/[ァ-ヺー]+/g) ?? []) {
+      spellings = spellings.flatMap((s) => [s, ...(LOANWORDS[kata] ?? []).map((en) => s.replace(kata, en))]);
+    }
+  }
+  return spellings.map(toRomaji);
+}
+
+// Every accepted answer as a comparison key: all phrase orders × all ways to write each word and particle.
 function acceptedAnswers(tokens) {
   const { phrases, predicate } = splitPhrases(tokens);
   const phraseSets = [phrases];
@@ -269,7 +281,7 @@ function acceptedAnswers(tokens) {
   for (const order of phraseSets.flatMap(permutations)) {
     let variants = [""];
     for (const t of [...order.flat(), ...predicate]) {
-      const options = t.answers ? t.answers.flatMap(particleRomaji) : [toRomaji(t.text)];
+      const options = t.answers ? t.answers.flatMap(particleRomaji) : wordSpellings(t.text);
       variants = variants.flatMap((v) => options.map((o) => v + o));
     }
     variants.forEach((v) => keys.add(canon(v)));
@@ -409,6 +421,7 @@ function saveSettings(e) {
     types: form.getAll("types"),
     length: form.get("length"),
     repeat: Number(form.get("repeat")),
+    katakana: form.get("katakana"),
   };
   if (!generate(s)) {
     els.settingsError.textContent = "No sentences fit these settings. Try turning more on.";

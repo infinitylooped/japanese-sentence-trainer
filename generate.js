@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   types: ["positive", "negative", "question"],
   length: "any",
   repeat: 3, // a missed sentence comes back after this many other cards; 0 = never
+  katakana: "strict", // Type mode: "strict" = katakana words must be written in kana, "english" = English spelling OK too
 };
 
 // How many particles (blanks, including the question か) a sentence may have.
