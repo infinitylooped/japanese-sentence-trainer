@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   particles: ["は", "の", "も", "を", "で", "に", "へ"],
   types: ["positive", "negative", "question"],
   length: "any",
+  repeat: 3, // a missed sentence comes back after this many other cards; 0 = never
 };
 
 // How many particles (blanks, including the question か) a sentence may have.

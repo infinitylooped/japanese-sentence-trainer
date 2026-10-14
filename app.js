@@ -41,10 +41,10 @@ const els = {
 
 let mode = loadMode();
 let settings = loadSettings();
-const queues = {};
+const missed = {}; // per mode: [{ item, wait }], wait = cards until it comes back
 const stats = {};
 for (const m in HELP) {
-  queues[m] = [];
+  missed[m] = [];
   stats[m] = { right: 0, total: 0, streak: 0 };
 }
 let card = null;
@@ -151,21 +151,22 @@ function typeCard(item) {
   return { item, segments, tokens, accepted: acceptedAnswers(tokens), input };
 }
 
-// A new sentence that isn't already coming up or on screen.
-function freshSentence(q) {
+// A new sentence that isn't on screen or waiting to come back.
+function freshSentence(waiting) {
   let s;
   for (let i = 0; i < 20; i++) {
     s = generate(settings);
-    if (s && s.jp !== card?.item.jp && !q.some((x) => x.jp === s.jp)) break;
+    if (s && s.jp !== card?.item.jp && !waiting.some((m) => m.item.jp === s.jp)) break;
   }
   return s ?? generate(DEFAULT_SETTINGS);
 }
 
 function nextCard() {
-  const q = queues[mode];
-  // Keep a few sentences lined up so a missed one can be brought back a few cards later.
-  while (q.length < 4) q.push(freshSentence(q));
-  const item = q.shift();
+  // A missed sentence whose wait is over comes back; otherwise make a new one.
+  const waiting = missed[mode];
+  waiting.forEach((m) => m.wait--);
+  const due = waiting.findIndex((m) => m.wait <= 0);
+  const item = due >= 0 ? waiting.splice(due, 1)[0].item : freshSentence(waiting);
   // tries: checks so far. wrong: the last check was wrong and the answer hasn't changed since. revealed: solution shown.
   card = { ...{ particles: particleCard, translate: translateCard, type: typeCard }[mode](item), tries: 0, wrong: false, revealed: false };
   solved = false;
@@ -315,8 +316,8 @@ function check() {
       s.streak++;
     } else {
       s.streak = 0;
-      // Bring this sentence back a few cards later.
-      queues[mode].splice(Math.min(3, queues[mode].length), 0, card.item);
+      // Bring this sentence back after settings.repeat other cards.
+      if (settings.repeat > 0) missed[mode].push({ item: card.item, wait: settings.repeat + 1 });
     }
   }
   solved = right;
@@ -389,7 +390,7 @@ function setMode(m) {
 function fillSettingsForm(s) {
   for (const input of els.settingsForm.elements) {
     if (input.type === "checkbox") input.checked = s[input.name].map(String).includes(input.value);
-    if (input.type === "radio") input.checked = s[input.name] === input.value;
+    if (input.type === "radio") input.checked = String(s[input.name]) === input.value;
   }
 }
 
@@ -407,6 +408,7 @@ function saveSettings(e) {
     particles: form.getAll("particles"),
     types: form.getAll("types"),
     length: form.get("length"),
+    repeat: Number(form.get("repeat")),
   };
   if (!generate(s)) {
     els.settingsError.textContent = "No sentences fit these settings. Try turning more on.";
@@ -416,7 +418,7 @@ function saveSettings(e) {
   try {
     localStorage.setItem("settings", JSON.stringify(s));
   } catch {}
-  for (const m in queues) queues[m] = [];
+  for (const m in missed) missed[m] = [];
   els.settings.close();
   if (!solved) nextCard();
 }

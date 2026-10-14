@@ -7,7 +7,8 @@ Drill for the Japanese particles in Genki I, lessons 1–3 (は の も を で 
 - **Type**: type the Japanese sentence in kana or romaji (or a mix), given the English. わたしは can be left out.
 
 Sentences are generated from the Genki vocabulary: positive, negative (ません / じゃないです) and questions (か).
-The ⚙ button picks which lessons, particles, sentence types and sentence lengths you get; the defaults use everything.
+The ⚙ button picks which lessons, particles, sentence types and sentence lengths you get (the defaults use everything),
+and how soon a sentence you missed comes back.
 
 ## Run
 
