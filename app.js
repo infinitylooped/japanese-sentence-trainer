@@ -48,7 +48,7 @@ for (const m in HELP) {
   stats[m] = { right: 0, total: 0, streak: 0 };
 }
 let card = null;
-let checked = false;
+let solved = false; // answered correctly; the card is locked until "Next"
 
 function loadMode() {
   try {
@@ -116,7 +116,7 @@ function permutations(arr) {
 
 function particleCard(item) {
   const segments = parse(item.jp);
-  return { item, segments, blanks: segments.filter((s) => s.answers), active: 0 };
+  return { item, segments, tokens: tokenize(segments), blanks: segments.filter((s) => s.answers), active: 0 };
 }
 
 function translateCard(item) {
@@ -137,7 +137,10 @@ function typeCard(item) {
   const input = document.createElement("input");
   Object.assign(input, { type: "text", className: "answer", placeholder: "Type the sentence in kana or romaji", autocomplete: "off", spellcheck: false, lang: "ja" });
   input.setAttribute("autocapitalize", "off");
-  input.addEventListener("input", () => (els.action.disabled = !ready()));
+  input.addEventListener("input", () => {
+    card.wrong = false;
+    render();
+  });
   input.addEventListener("keydown", (e) => {
     // Enter while the IME is composing just confirms the kana.
     if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) {
@@ -163,34 +166,34 @@ function nextCard() {
   // Keep a few sentences lined up so a missed one can be brought back a few cards later.
   while (q.length < 4) q.push(freshSentence(q));
   const item = q.shift();
-  card = { particles: particleCard, translate: translateCard, type: typeCard }[mode](item);
-  checked = false;
-  els.feedback.replaceChildren();
-  els.feedback.className = "feedback";
+  // tries: checks so far. wrong: the last check was wrong and the answer hasn't changed since. revealed: solution shown.
+  card = { ...{ particles: particleCard, translate: translateCard, type: typeCard }[mode](item), tries: 0, wrong: false, revealed: false };
+  solved = false;
   render();
 }
 
 // ---------- particle mode ----------
 
-function firstEmptyFrom(start) {
+// The next blank that still needs a particle: empty, or marked wrong by the last check.
+function nextOpen(start) {
   const n = card.blanks.length;
   for (let k = 0; k < n; k++) {
     const i = (start + k) % n;
-    if (card.blanks[i].value === null) return i;
+    if (card.blanks[i].value === null || card.blanks[i].wrong) return i;
   }
   return -1;
 }
 
 function pickParticle(particle) {
-  if (checked || card.active === -1) return;
-  card.blanks[card.active].value = particle;
-  card.active = firstEmptyFrom(card.active + 1);
+  if (solved || card.active === -1) return;
+  Object.assign(card.blanks[card.active], { value: particle, wrong: false });
+  card.active = nextOpen(card.active + 1);
   render();
 }
 
 function clearBlank(i) {
-  if (checked) return;
-  card.blanks[i].value = null;
+  if (solved) return;
+  Object.assign(card.blanks[i], { value: null, wrong: false });
   card.active = i;
   render();
 }
@@ -198,14 +201,16 @@ function clearBlank(i) {
 // ---------- translate mode ----------
 
 function pickTile(i) {
-  if (checked || !card.tiles[i] || card.answer.includes(i)) return;
+  if (solved || !card.tiles[i] || card.answer.includes(i)) return;
   card.answer.push(i);
+  card.wrong = false;
   render();
 }
 
 function removeTile(pos) {
-  if (checked) return;
+  if (solved) return;
   card.answer.splice(pos, 1);
+  card.wrong = false;
   render();
 }
 
@@ -278,13 +283,13 @@ function reading(tokens) {
 // ---------- shared ----------
 
 function ready() {
-  if (mode === "particles") return card.active === -1;
+  if (mode === "particles") return card.blanks.every((b) => b.value !== null);
   if (mode === "translate") return card.answer.length > 0;
   return card.input.value.trim() !== "";
 }
 
 function undo() {
-  if (checked) return;
+  if (solved) return;
   if (mode === "translate") {
     if (card.answer.length) removeTile(card.answer.length - 1);
   } else if (mode === "particles") {
@@ -299,26 +304,36 @@ function isRight() {
   return card.accepted.has(canon(toRomaji(card.input.value)));
 }
 
+// Only the first check of a sentence counts towards the score; after that it can be retried freely.
 function check() {
-  checked = true;
-  const s = stats[mode];
   const right = isRight();
-  card.right = right;
-  s.total++;
-
-  if (right) {
-    s.right++;
-    s.streak++;
-    els.feedback.className = "feedback right";
-    els.feedback.replaceChildren(line("p", "", "正解！ Correct!"), ...(mode === "type" ? answerLines() : []));
-  } else {
-    s.streak = 0;
-    // Bring this sentence back a few cards later.
-    queues[mode].splice(Math.min(3, queues[mode].length), 0, card.item);
-    els.feedback.className = "feedback wrong";
-    els.feedback.replaceChildren(...(mode === "particles" ? particleMistakes() : sentenceMistakes()));
+  if (card.tries++ === 0) {
+    const s = stats[mode];
+    s.total++;
+    if (right) {
+      s.right++;
+      s.streak++;
+    } else {
+      s.streak = 0;
+      // Bring this sentence back a few cards later.
+      queues[mode].splice(Math.min(3, queues[mode].length), 0, card.item);
+    }
+  }
+  solved = right;
+  card.wrong = !right;
+  if (mode === "particles" && !right) {
+    card.blanks.forEach((b) => (b.wrong = !b.answers.includes(b.value)));
+    card.mistakes = card.blanks.filter((b) => b.wrong).map((b) => ({ value: b.value, answers: b.answers }));
+    card.active = nextOpen(0);
   }
   render();
+  if (mode === "type" && !right) card.input.focus();
+}
+
+function reveal() {
+  card.revealed = true;
+  render();
+  if (mode === "type") card.input.focus();
 }
 
 function line(tag, className, text, lang) {
@@ -341,8 +356,8 @@ function answerLines() {
 
 function particleMistakes() {
   const ul = document.createElement("ul");
-  ul.append(...card.blanks.filter((b) => !b.answers.includes(b.value)).map((b) => hintItem(`${b.value} → `, b.answers)));
-  return [line("p", "full", fullSentence(card.segments), "ja"), ul];
+  ul.append(...card.mistakes.map((b) => hintItem(`${b.value} → `, b.answers)));
+  return [...answerLines(), ul];
 }
 
 function sentenceMistakes() {
@@ -358,7 +373,7 @@ function sentenceMistakes() {
 }
 
 function onAction() {
-  if (checked) nextCard();
+  if (solved) nextCard();
   else if (ready()) check();
 }
 
@@ -403,7 +418,7 @@ function saveSettings(e) {
   } catch {}
   for (const m in queues) queues[m] = [];
   els.settings.close();
-  if (!checked) nextCard();
+  if (!solved) nextCard();
 }
 
 // ---------- rendering ----------
@@ -422,9 +437,10 @@ function renderParticles() {
       if (!seg.answers) return document.createTextNode(plain(seg.text));
       const i = card.blanks.indexOf(seg);
       const b = button("blank", seg.value ?? "　", () => clearBlank(i));
-      if (!checked && i === card.active) b.classList.add("active");
-      if (checked) b.classList.add(seg.answers.includes(seg.value) ? "right" : "wrong");
-      b.disabled = checked;
+      if (!solved && i === card.active) b.classList.add("active");
+      if (solved) b.classList.add("right");
+      if (seg.wrong) b.classList.add("wrong");
+      b.disabled = solved;
       b.title = "Click to clear";
       return b;
     })
@@ -433,20 +449,20 @@ function renderParticles() {
   els.choices.replaceChildren(
     ...PARTICLES.map((p, i) => {
       const b = button("tile particle", `${p}<small>${i + 1}</small>`, () => pickParticle(p));
-      b.disabled = checked;
+      b.disabled = solved;
       return b;
     })
   );
 }
 
 function renderTranslate() {
-  const result = checked ? (card.right ? "right" : "wrong") : "";
+  const result = solved ? "right" : card.wrong ? "wrong" : "";
   els.sentence.replaceChildren(
     ...(card.answer.length
       ? card.answer.map((tileIndex, pos) => {
           const t = card.tiles[tileIndex];
           const b = button(`tile placed ${t.particle ? "particle" : ""} ${result}`, t.text, () => removeTile(pos));
-          b.disabled = checked;
+          b.disabled = solved;
           return b;
         })
       : [line("span", "placeholder", "Tap the tiles below to build the sentence")])
@@ -457,7 +473,7 @@ function renderTranslate() {
       const used = card.answer.includes(i);
       const num = i < 9 ? `<small>${i + 1}</small>` : "";
       const b = button(`tile ${t.particle ? "particle" : ""} ${used ? "used" : ""}`, `${t.text}${num}`, () => pickTile(i));
-      b.disabled = checked || used;
+      b.disabled = solved || used;
       return b;
     })
   );
@@ -465,13 +481,33 @@ function renderTranslate() {
 
 function renderType() {
   els.choices.replaceChildren();
-  card.input.disabled = checked;
-  card.input.classList.toggle("right", checked && card.right);
-  card.input.classList.toggle("wrong", checked && !card.right);
+  card.input.disabled = solved;
+  card.input.classList.toggle("right", solved);
+  card.input.classList.toggle("wrong", card.wrong);
   // Keep the same input element so typing (and IME state) isn't interrupted.
   if (els.sentence.firstChild !== card.input) {
     els.sentence.replaceChildren(card.input);
     card.input.focus();
+  }
+}
+
+// Right: the solution. Wrong: a prompt to try again, and the solution only once asked for.
+function renderFeedback() {
+  if (solved) {
+    els.feedback.className = "feedback right";
+    const verdict = card.revealed ? "正解！ Correct (after seeing the solution)." : "正解！ Correct!";
+    els.feedback.replaceChildren(line("p", "", verdict), ...answerLines());
+  } else if (card.tries) {
+    els.feedback.className = "feedback wrong";
+    els.feedback.replaceChildren(
+      line("p", "verdict", "Not quite. Change your answer and check again."),
+      ...(card.revealed
+        ? [...(mode === "particles" ? particleMistakes() : sentenceMistakes()), button("link", "Skip to the next sentence →", nextCard)]
+        : [button("link", "Show solution", reveal)])
+    );
+  } else {
+    els.feedback.className = "feedback";
+    els.feedback.replaceChildren();
   }
 }
 
@@ -482,9 +518,10 @@ function render() {
   els.english.textContent = card.item.en;
 
   ({ particles: renderParticles, translate: renderTranslate, type: renderType })[mode]();
+  renderFeedback();
 
-  els.action.textContent = checked ? "Next →" : "Check";
-  els.action.disabled = !checked && !ready();
+  els.action.textContent = solved ? "Next →" : "Check";
+  els.action.disabled = !solved && !ready();
 
   const s = stats[mode];
   els.score.textContent = `${s.right} / ${s.total}`;
@@ -502,6 +539,7 @@ function init() {
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || els.settings.open) return;
     if (e.target instanceof HTMLInputElement) return; // the answer box handles its own keys
+    if (e.key === "Enter" && els.feedback.contains(e.target)) return; // "Show solution" / "Skip" buttons
     const n = Number(e.key);
     if (n >= 1 && n <= 9 && mode !== "type") {
       e.preventDefault();

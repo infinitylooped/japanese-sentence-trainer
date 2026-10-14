@@ -254,3 +254,19 @@ dialog .error:empty { display: none; }
   border-radius: 8px;
 }
 .dialog-buttons .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+/* "Show solution" / "Skip" in the feedback box */
+.feedback .verdict { margin: 0 0 8px; color: var(--wrong); font-weight: 600; }
+.feedback .link {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.feedback .link:hover { color: var(--text); }
+.feedback .verdict + .link { margin-top: 0; }
