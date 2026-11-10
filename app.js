@@ -1,23 +1,25 @@
-const PARTICLES = ["は", "の", "も", "を", "で", "に", "へ", "か"];
+const PARTICLES = ["は", "の", "も", "を", "で", "に", "へ", "か", "が", "と"];
 
 const HINTS = {
   "は": "topic marker: \"as for X…\"",
   "の": "links nouns: X の Y = X's Y / Y of X",
-  "も": "\"also / too\" (replaces は)",
+  "も": "\"also / too\" (replaces は, が and を; goes after other particles)",
   "を": "marks the direct object of the verb",
   "で": "place where an action happens",
-  "に": "point in time (not after あした, まいにち, …), or destination",
+  "に": "point in time (not after あした, まいにち, …), destination, where something is (あります / います), or the person you meet",
   "へ": "direction / destination of movement",
   "か": "turns the sentence into a question",
+  "が": "marks what exists (あります / います), what you like (すき / きらい) or understand (わかります)",
+  "と": "\"with\" a person, or \"and\" between nouns",
 };
 
 const ORDER_NOTE = "Word order is flexible as long as each particle stays after its word and the verb comes last.";
 
 const HELP = {
-  particles: "Keys: <kbd>1</kbd>–<kbd>8</kbd> pick a particle · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
+  particles: "Keys: <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> pick a particle · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
   translate:
     `Tap the tiles in order. ${ORDER_NOTE}<br>` +
-    "Keys: <kbd>1</kbd>–<kbd>9</kbd> pick a tile · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
+    "Keys: <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> pick a tile · <kbd>Backspace</kbd> undo · <kbd>Enter</kbd> check / next",
   type:
     "Type in kana or romaji (or a mix). Spaces, punctuation and long vowels don't matter, and わたしは can be left out. " +
     `${ORDER_NOTE}<br>Keys: <kbd>Enter</kbd> check / next`,
@@ -77,7 +79,7 @@ function parse(jp) {
   return jp
     .split(/(\{[^}]+\})/)
     .filter(Boolean)
-    .map((s) => (s.startsWith("{") ? { answers: s.slice(1, -1).split("|"), value: null } : { text: s }));
+    .map((s) => (s.startsWith("{") ? { answers: blankAnswers(s.slice(1, -1)), link: s.includes("&"), value: null } : { text: s }));
 }
 
 const plain = (text) => text.replace(/\s+/g, "");
@@ -90,7 +92,7 @@ function fullSentence(segments) {
 function tokenize(segments) {
   return segments.flatMap((s) =>
     s.answers
-      ? [{ answers: s.answers }]
+      ? [{ answers: s.answers, link: s.link }]
       : s.text
           .replace(/[。？?！!、]/g, "")
           .split(/\s+/)
@@ -215,18 +217,22 @@ function removeTile(pos) {
   render();
 }
 
-// Split tokens into "words + particle" phrases (の keeps going to the next noun, か belongs to the verb);
-// a word that takes no particle, like あした, is a phrase by itself. The rest is the predicate.
+// Split tokens into "words + particle" phrases (の and a linking と keep going to the next noun, か belongs to the verb,
+// and も can follow another particle); a word that takes no particle, like あした, is a phrase by itself. The rest is the predicate.
 function splitPhrases(tokens) {
   const phrases = [];
   let cur = [];
-  for (const t of tokens) {
+  tokens.forEach((t, i) => {
     cur.push(t);
-    if (t.answers ? !t.answers.some((a) => a === "の" || a === "か") : FREE_WORDS.has(t.text)) {
+    const next = tokens[i + 1];
+    const ends = t.answers
+      ? !t.link && !t.answers.some((a) => a === "の" || a === "か") && !next?.answers?.includes("も")
+      : FREE_WORDS.has(t.text) && !next?.answers; // あしたは has a particle after all
+    if (ends) {
       phrases.push(cur);
       cur = [];
     }
-  }
+  });
   return { phrases, predicate: cur };
 }
 
@@ -446,6 +452,11 @@ function button(className, html, onclick) {
   return b;
 }
 
+// The number key for the i-th tile: 1–9, then 0.
+function keyLabel(i) {
+  return i < 10 ? `<small>${(i + 1) % 10}</small>` : "";
+}
+
 function renderParticles() {
   els.sentence.replaceChildren(
     ...card.segments.map((seg) => {
@@ -463,7 +474,7 @@ function renderParticles() {
 
   els.choices.replaceChildren(
     ...PARTICLES.map((p, i) => {
-      const b = button("tile particle", `${p}<small>${i + 1}</small>`, () => pickParticle(p));
+      const b = button("tile particle", `${p}${keyLabel(i)}`, () => pickParticle(p));
       b.disabled = solved;
       return b;
     })
@@ -486,8 +497,7 @@ function renderTranslate() {
   els.choices.replaceChildren(
     ...card.tiles.map((t, i) => {
       const used = card.answer.includes(i);
-      const num = i < 9 ? `<small>${i + 1}</small>` : "";
-      const b = button(`tile ${t.particle ? "particle" : ""} ${used ? "used" : ""}`, `${t.text}${num}`, () => pickTile(i));
+      const b = button(`tile ${t.particle ? "particle" : ""} ${used ? "used" : ""}`, `${t.text}${keyLabel(i)}`, () => pickTile(i));
       b.disabled = solved || used;
       return b;
     })
@@ -555,8 +565,8 @@ function init() {
     if (e.ctrlKey || e.metaKey || e.altKey || els.settings.open) return;
     if (e.target instanceof HTMLInputElement) return; // the answer box handles its own keys
     if (e.key === "Enter" && els.feedback.contains(e.target)) return; // "Show solution" / "Skip" buttons
-    const n = Number(e.key);
-    if (n >= 1 && n <= 9 && mode !== "type") {
+    const n = e.key === "0" ? 10 : Number(e.key);
+    if (n >= 1 && n <= 10 && mode !== "type") {
       e.preventDefault();
       if (mode === "particles") pickParticle(PARTICLES[n - 1]);
       else pickTile(n - 1);
